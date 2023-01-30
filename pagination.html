@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .container {
+            text-align: center;
+        }
+        .container a{
+            cursor: default;
+            display: inline-block;
+            color:blueviolet;
+            background-color:aliceblue;
+            margin: 0 2px;
+            font-size: 20px;
+            user-select: none;
+            height: 20px;
+            line-height: 20px;
+            border: 1px solid white;
+        }
+        .container a:hover{
+            border: 1px solid #00c9A6;
+            cursor: pointer;
+        }
+
+        .container a.current{
+            background-color: #00c9A6;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 
+        思路:(1)分页器放在一个div容器内，所有的按钮由a标签实现
+            (2)上下页按钮分为可选状态和禁用状态
+            (3)数字按钮分为选中状态和普通状态
+            (4)分页器所需数据：数据总数量total，每页数据量pageSize,总页数pageCount,当前页pageNo
+            (5)将分页器数据和方法存放于分页器函数的原型上
+            (6)所需方法：构建页面函数renderPage(),获取页面元素函数getEle(),切换页面函数switchPage(),跳转页面函数gotoPage()
+        实现流程：
+            (1)构建html页面
+            (2)创建pagination分页器函数,函数初始化
+            (3)将数据和方法挂载到函数原型对象上
+                1.将数据存放到pages对象中
+                2.数据初始化，并在初始化函数内调用renderPage(pages),并传入页面数据
+                3.创建renderPage(),完成页面构建，调用switchPage()
+                4.创建switchPage(),获取a标签，给a标签绑定点击事件,调用gotoPage()
+                5.创建gotoPage(),修改pageNo，重新调用renderPage()
+            (4)创建pagination函数的实例，传入数据
+     -->
+    <div class="container"></div>
+
+
+    <script>
+        function Pagination(obj) {
+            this.init(obj)
+        }
+
+        Pagination.prototype = {
+            pages: {
+                pageNo: 1,
+                pageSize: 10,
+                pageCount: 0
+            },
+            init: function (obj) {
+                var pages = this.pages
+                pages.pageNo = obj.pageNo
+                pages.total = obj.total
+                pages.pageSize = obj.pageSize
+                pages.pageCount = Math.ceil(obj.total / obj.pageSize)
+                pages.container = obj.container
+                pages.eleHtml = obj.eleHtml
+                pages.prevPage = obj.prevPage || 'prevPage'
+                pages.nextPage = obj.nextPage || 'nextPage'
+                this.renderPage(pages)
+            },
+            renderPage(pages) {
+                // 声明三个变量用于存放模板字符串pageStr,遍历起始位置start,遍历结束位置end
+                var pageStr = '', start, end
+                // 构建上一页按钮
+                // 如果当前页为1，按钮为禁用状态,否则为可用状态
+                if (pages.pageNo == 1) {
+                    pageStr = `<a class='disabled'>上一页</a>`
+                } else {
+                    pageStr = `<a class='prevPage'>上一页</a>`
+                }
+                //构建中间数字区域按钮
+                //如果总页数小于5页
+                if (pages.pageCount < 5) {
+                    // 进行遍历
+                    for (start = 0; start < pages.pageCount; start++) {
+                        end = start + 1
+                        if (end == pages.pageNo) {
+                            pageStr += '<a class="current">' + end + '</a>'
+                        } else {
+                            pageStr += '<a>' + end + '</a>'
+                        }
+                    }
+                } else {
+                    //总页数大于等于5页
+                    //遍历起始位置为当前页前2页，结束位置为当前页后2页
+                    start = pages.pageNo - 2
+                    end = pages.pageNo + 2
+                    //如果当前页为前3页，固定end为5，否则锁定第一页
+                    if (pages.pageNo < 4) {
+                        end = 4
+                    } else {
+                        pageStr += '<a>' + 1 + '</a>'
+                    }
+                    if(pages.pageNo>4){
+                        pageStr += '<a>...</a>'
+                    }
+                    // 循环
+                    for (; start <= end; start++) {
+                        if (start <= pages.pageCount && start > 0) {
+                            if (start == pages.pageNo) {
+                                pageStr += '<a class="current">' + start + '</a>'
+                            } else {
+                                pageStr += '<a>' + start + '</a>'
+                            }
+                        }
+                    }
+                    //如果当前页为后4页，固定start为倒数第5页，否则呈现...且锁定最后一页
+                    if(pages.pageNo<pages.pageCount-3){
+                        pageStr += '<a>...</a>'
+                    }
+                    if (pages.pageNo < pages.pageCount - 2) {
+                        pageStr += '<a>' + pages.pageCount + '</a>'
+                    } else {
+                        start = pages.pageCount - 3
+                    }
+
+                }
+                //构建下一页按钮
+                if (pages.pageNo == pages.pageCount) {
+                    pageStr += `<a class='disabled'>下一页</a>`
+                } else {
+                    pageStr += `<a class='nextPage'>下一页</a>`
+                }
+                //获取a标签外部容器，将a标签插入
+                var container = this.getEle(pages.container)
+                container.innerHTML = pageStr
+                //调用切换页面函数
+                this.switchPage()
+            },
+            getEle(select, all) {
+                return all ? document.querySelectorAll(select) : document.querySelector(select)
+            },
+            switchPage() {
+                pages = this.pages
+                w=this //将外部this指向的地址保存起来
+                //获取所有a标签
+                var alist = this.getEle(pages.container + ' a', true)
+                //遍历a标签，绑定点击事件
+                for (i in alist) {
+                    if (i < alist.length) {
+                        alist[i].addEventListener('click', function () {
+                            //获取标签属性值
+                            var eleHtml = this.innerHTML
+                            if (this.className == pages.prevPage) {
+                                pages.pageNo > 1 && (pageNo = pages.pageNo - 1)
+                            } else if (this.className == pages.nextPage) {
+                                pages.pageNo < pages.pageCount && (pageNo = pages.pageNo + 1)
+                            } else {
+                                pageNo = parseInt(eleHtml)
+                            }
+                            pageNo && w.gotoPage(pageNo)
+                        })
+                    }
+                }
+            },
+            gotoPage(pageNo) {
+                this.pages.pageNo = pageNo
+                this.renderPage(this.pages)
+            }
+        }
+
+
+        var p = new Pagination({
+            container: '.container',
+            pageSize: 10,
+            total: 100,
+            pageNo: 1
+        })
+    </script>
+</body>
+
+</html>
